@@ -13,6 +13,7 @@ int main() {
     if (tpid > 0) {
         exit(0);
     }
+    //独立运行
     setsid();
     umask(0);
     for (int i = 0; i < NR_OPEN; i++) {
@@ -27,7 +28,8 @@ int main() {
     char tmp[20] = {0};
     char *config = "/opt/pi_client/client.conf";
     char ip[20] = {0}; 
-
+    
+    //读取配置
     get_conf_value(config, "IP", tmp);
     strcpy(ip, tmp);
     memset(tmp, 0, sizeof(tmp));
@@ -52,20 +54,23 @@ int main() {
     warnPort = atoi(tmp);
     memset(tmp, 0, sizeof(tmp));
     
+    //查看是否被使用，或者重复开启
     if (is_use(heartPort) || is_use(ctlPort)) {
         write_log(Error_log, "[重复开启] [error] [process : %d] [message : the process has running]", getpid()); 
         exit(0);
     } 
     
-    
+    //多线程初始化，互斥锁，条件变量等等
     pthread_mutexattr_t mattr; 
     pthread_condattr_t cattr;
     pthread_mutexattr_init(&mattr);
     pthread_condattr_init(&cattr);
+    //设置互斥所作用域是属于线程的还是进程的还是系统的
     pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
     pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_SHARED);
     
     struct Share *share = NULL;
+    //共享内存　初始化
     int shmid = shmget(IPC_PRIVATE, sizeof(struct Share), IPC_CREAT | 0666);
     if (shmid < 0) {
         perror("shmget");
@@ -73,11 +78,13 @@ int main() {
         exit(1);
     } 
     share = (struct Share*) shmat (shmid, NULL, 0);
+    //返回共享内存地址
     if (share == (void *)-1) {
         perror("shmat");
         write_log(Error_log, "[共享内存] [error] [process : %d] [message : %s]", getpid(), strerror(errno)); 
         exit(1);
     }
+    //初始化共享内存的互斥所和条件变量
     pthread_mutex_init(&share->smutex, &mattr);
     pthread_cond_init(&share->sready, &cattr);
 
@@ -96,6 +103,7 @@ int main() {
             write_log(Error_log, "[开辟进程] [error] [process : %d] [message : %s]", getpid(), strerror(errno)); 
         }
         if(pid_1 > 0) {
+            //心跳模块　进程
             recv_heart(heartPort, share);
             wait(&pid_1);
             exit(0);
@@ -111,6 +119,7 @@ int main() {
                 if (pid_2 == 0) break;
             }
             if (pid_2 > 0) {
+                // 父进程
                 while (1) {
                     //条件触发
                     pthread_mutex_lock(&share->smutex);
@@ -130,9 +139,11 @@ int main() {
                 exit(0);
             }
             if (pid_2 == 0) {
+                //字进程
                 int cnt = 0;
                 while(1) {
                     cnt += 1;
+                    //运行脚本
                     do_check(inx, share, cnt, warnPort, ip);
                     if (cnt == 5) cnt = 0;
                     sleep(2);
