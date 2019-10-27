@@ -13,7 +13,9 @@
 
 struct Share {
     int shareCnt;
+　　 //互斥量
     pthread_mutex_t smutex;
+    //条件变量
     pthread_cond_t sready;
 };
 
@@ -32,7 +34,7 @@ void do_check(int inx, struct Share* share, int cnt, int port, char *ip);
 int do_bash(int inx, struct Share *share, int cnt, int port, char *ip);
 void send_warn(char *ip, int port, char *message, int ind);
 
-
+//发送报警信息
 void send_warn(char *ip, int port, char *message, int ind) {
     if (ind == 5 && !strcmp(message, "")) return ;
     if (ind == 0 && strstr(message, "warning") == NULL) return ;
@@ -45,10 +47,11 @@ void send_warn(char *ip, int port, char *message, int ind) {
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
     addr.sin_addr.s_addr = inet_addr(ip);
+    //udp
     sendto(sockfd, message, strlen(message), 0, (struct sockaddr*)&addr, sizeof(addr));
     close(sockfd);
 }
-
+//运行脚本，存储日志信息，检测报警
 int do_bash(int inx, struct Share *share, int cnt, int port, char *ip) {
     char opstr[100] = {0};
     FILE *pfile = NULL;
@@ -91,6 +94,7 @@ int do_bash(int inx, struct Share *share, int cnt, int port, char *ip) {
             write_log(Error_log, "[脚本执行] [error] [process : %d] [message : %s]", getpid(), strerror(errno));
             return -1;
         }
+	//对文件建立互斥锁
         flock(fw->_fileno, LOCK_EX);
         fprintf(fw, "%s", tmp_info);
         fclose(fw);
@@ -104,6 +108,7 @@ void do_check(int inx, struct Share *share, int cnt, int port, char *ip) {
     do_bash(inx, share, cnt, port, ip);
     
     if (inx == 0) {
+	//线程互斥锁
         pthread_mutex_lock(&share->smutex);
         if (share->shareCnt == 5) {
             pthread_mutex_unlock(&share->smutex);
@@ -111,13 +116,17 @@ void do_check(int inx, struct Share *share, int cnt, int port, char *ip) {
         }
         share->shareCnt += 1; 
         if (share->shareCnt >= 5) {
+　　　　　　　//pthread_cond_signal函数的作用是发送一个信号给
+	    //另外一个正在处于阻塞等待状态的线程,使其脱离阻塞状态,继续执行.
+	    //如果没有线程处在阻塞等待状态,pthread_cond_signal也会成功返回。
             pthread_cond_signal(&share->sready);
         }
+	//解锁
         pthread_mutex_unlock(&share->smutex);
     }
 }
 
-
+//心跳
 void do_load(char *ip, int loadPort, struct Share* share) {
     printf("\nclient heart start\n");
     int stime = 10;
@@ -143,6 +152,7 @@ void do_load(char *ip, int loadPort, struct Share* share) {
     }
 }
 
+//接受数据　？？　发送数据
 void recv_data(int dataport, int ctlport, struct Share *share) {
     int listenfd = socket_create(ctlport);
     if (listenfd < 0) {
@@ -208,7 +218,7 @@ void recv_data(int dataport, int ctlport, struct Share *share) {
     close(listenfd);
 }
 
-
+//心跳模块
 void recv_heart(int port, struct Share *share) {
     int sockfd;
     sockfd = socket_create(port);
