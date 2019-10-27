@@ -126,7 +126,7 @@ void do_check(int inx, struct Share *share, int cnt, int port, char *ip) {
     }
 }
 
-//心跳
+//加载
 void do_load(char *ip, int loadPort, struct Share* share) {
     printf("\nclient heart start\n");
     int stime = 10;
