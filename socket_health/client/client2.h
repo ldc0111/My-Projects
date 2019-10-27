@@ -152,7 +152,7 @@ void do_load(char *ip, int loadPort, struct Share* share) {
     }
 }
 
-//接受数据　？？　发送数据
+//接受数据　？？　发送数据 主进程
 void recv_data(int dataport, int ctlport, struct Share *share) {
     int listenfd = socket_create(ctlport);
     if (listenfd < 0) {
