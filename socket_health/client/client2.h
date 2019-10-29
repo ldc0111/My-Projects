@@ -109,6 +109,7 @@ void do_check(int inx, struct Share *share, int cnt, int port, char *ip) {
     
     if (inx == 0) {
 	//线程互斥锁
+	//第一个进程
         pthread_mutex_lock(&share->smutex);
         if (share->shareCnt == 5) {
             pthread_mutex_unlock(&share->smutex);
@@ -162,6 +163,7 @@ void recv_data(int dataport, int ctlport, struct Share *share) {
     }
     while (1) {
         int newfd;
+        //每次链接发6次
         newfd = accept(listenfd, NULL, NULL);
         if (newfd < 0) {
             perror("accept");
@@ -170,6 +172,7 @@ void recv_data(int dataport, int ctlport, struct Share *share) {
         }
         for (int i = 0; i < 6; i++) {
             int fno = -1;
+	    //接受一个文件标示 标示要发送的是那个文件
             int ret = recv(newfd, &fno, sizeof(int), 0);
             if (ret <= 0) {
                 perror("recv");
@@ -177,6 +180,7 @@ void recv_data(int dataport, int ctlport, struct Share *share) {
                 break;
             }
             char path[50] = {0};
+	    //找到文件的路径
             sprintf(path, "%s/%s", logpath, destname[fno - 100]);
             int ack = 0;
             if (access(path, F_OK) < 0) {
