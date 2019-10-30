@@ -110,7 +110,7 @@ int main() {
     heart.sum = sum;
     heart.timeout = timeout;
     pthread_create(&pth_heart, NULL, do_heart, (void*)&heart);
-    
+    //发送接收数据线程
     struct Data darg[Ins];
     for (int i = 0; i < Ins; i++) {
         darg[i].head = linklist[i];
@@ -119,10 +119,10 @@ int main() {
         darg[i].ctlport = ctlport;
         pthread_create(&pth_data[i], NULL, do_data, (void*)&darg[i]);
     }
-   
+   　//报警线程
     pthread_t pth_warn;
     pthread_create (&pth_warn, NULL, do_warn, (void*)&warnport);
-
+　　 //监听线程
     int listenfd = socket_create(listenport);
     listen_epoll(listenfd, linklist, sum, Ins, heartport);
      
