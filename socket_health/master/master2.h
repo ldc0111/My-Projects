@@ -14,15 +14,19 @@ typedef struct Node {
     int fd;
     struct Node *next;
 }Node, *LinkList;
-
+//链表指针
 struct Heart {
+    //记录每个链表有多长
     int *sum;
+    //二级指针
     LinkList *linklist;
     int ins;
+    //超时设置
     long timeout;
 } ;
 
 struct Data {
+    //数据表结构体
     LinkList head;
     int ind;
     int ctlport;
@@ -44,6 +48,7 @@ char *Error_master = "/opt/pi_master/Error_master.log";
 char *mpath = "/opt/pi_master/log/";
 char *warnMessage = "/opt/pi_master/Warn.log";
 
+//插入最小的链表里面
 int find_min(int *sum, int ins) {
     int min = 999999, ind;
     for (int i = 0; i < ins; i++) {
@@ -54,7 +59,7 @@ int find_min(int *sum, int ins) {
     }
     return ind;
 }
-
+//尾部插入法
 int insert(LinkList head, Node *node) {
     Node *p = head; 
     while (p->next) {
@@ -64,6 +69,7 @@ int insert(LinkList head, Node *node) {
     return 1;
 }
 
+//输出
 void output(LinkList head) {
     Node *p = head;
     int cnt = 0;
@@ -73,6 +79,7 @@ void output(LinkList head) {
     }
 }
 
+//心跳，按顺序链接每个客户机
 void *do_heart(void *arg) {
     struct Heart *harg = (struct Heart*)arg;
     while (1) {
@@ -80,12 +87,14 @@ void *do_heart(void *arg) {
             Node *p = harg->linklist[i];
             while (p->next) {
                 if (check_connect(p->next->addr, harg->timeout) < 0) {
+		    // 不在线删除
                     printf("%s is \033[31mnot online\033[0m on %d\n", inet_ntoa(p->next->addr.sin_addr), ntohs(p->next->addr.sin_port));
                     Node *q = p->next;
                     p->next = q->next;
                     free(q);
                     harg->sum[i] -= 1;
                 } else {
+		    //在线
                     printf("%s is \033[32monline\033[0m on %d\n", inet_ntoa(p->next->addr.sin_addr), ntohs(p->next->addr.sin_port));
                     p = p->next; 
                 }
@@ -95,7 +104,7 @@ void *do_heart(void *arg) {
         printf("\n");
     } 
 }
-
+//心跳模块　主动链接每个客户机
 int check_connect(struct sockaddr_in addr, long timeout) {
     int sockfd;
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -129,7 +138,7 @@ int check_connect(struct sockaddr_in addr, long timeout) {
     close(sockfd);
     return ret;
 }
-
+//数据模块
 void *do_data(void *arg) {
     struct Data *darg = (struct Data*)arg;
     char filename[6][20] = {"cpu.log", "disk.log", "mem.log", "user.log", "sys.log", "enermy.log"};
@@ -156,6 +165,7 @@ void *do_data(void *arg) {
                 continue;
             }
             for (int i = 100; i <= 105; i++) {
+		//选择要接受的是那个模块数据
                 int ret = send(sockfd, &i, sizeof(int), 0);
                 if (ret < 0) {
                     perror("send");
@@ -206,6 +216,7 @@ void *do_data(void *arg) {
     }
 }
 
+//报警模块
 void *do_warn(void *arg) {
     int *inarg = (int *)arg;
     int port = *inarg;
@@ -241,16 +252,18 @@ void *do_warn(void *arg) {
     }
     close(sockfd);
 }
-
+//io　监听模块
 void listen_epoll(int listenfd, LinkList *linklist, int *sum, int ins, int heartPort) {
     unsigned long ul = 1;
     ioctl(listenfd, FIONBIO, &ul);
+    //创建监听套接字
     int epollfd = epoll_create(MAXCLIENT);
     if (epollfd < 0) {
         perror("epoll_create");
         write_log(Error_master, "[监听模块] [error] [process : %d] [message : %s]", getpid(), strerror(errno));
         exit(1);
     }
+    //参数设置
     struct epoll_event ev, events[MAXCLIENT];
     ev.data.fd = listenfd;
     ev.events = EPOLLIN;
